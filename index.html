@@ -6,6 +6,8 @@
 <title>Propus — Orçamentos profissionais para quem trabalha por conta própria</title>
 <meta name="description" content="O Propus transforma o que você digita em um orçamento profissional em PDF — e te avisa quando o cliente abriu. Entre na lista de espera.">
 
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Three.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <!-- GSAP + ScrollTrigger -->
@@ -1249,8 +1251,21 @@ document.querySelectorAll('[data-capture]').forEach(capture=>{
   });
 
   // Step 2 → success (name/whatsapp optional)
-  form2.addEventListener('submit', e=>{
+  form2.addEventListener('submit', async e=>{
     e.preventDefault();
+
+    // Salva lead no Supabase
+    const email = capture.querySelector('[data-step1] input[type="email"]').value;
+    const nome = form2.querySelector('input[name="nome"]').value;
+    const whatsapp = form2.querySelector('input[name="whatsapp"]').value;
+
+    const { createClient } = supabase;
+    const db = createClient(
+      'https://pfedkpgjiuzcdhInxjlg.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmZWRrcGdqaXV6Y2RobG54amxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NzcyMTYsImV4cCI6MjA5ODI1MzIxNn0.84XxZcF-FLK0EzMcXg1_OrFzYKeXMJeXH_FLXPeh6Kw'
+    );
+    await db.from('leads').insert({ email, nome, whatsapp });
+
     gsap.to(capture, {scale:0.95, opacity:0, duration:0.3, ease:'power2.in', onComplete(){
       capture.remove();
       const div = document.createElement('div');

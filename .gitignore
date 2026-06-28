@@ -1,0 +1,13 @@
+# Arquivos desnecessários para deploy
+*.zip
+landing-handoff/
+propus-landing.html
+propus-landing-page/
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# PDFs e arquivos de design (não vão para o site)
+*.pdf

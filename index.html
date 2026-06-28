@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Propus — Orçamentos profissionais para quem trabalha por conta própria</title>
+<meta name="description" content="O Propus transforma o que você digita em um orçamento profissional em PDF — e te avisa quando o cliente abriu. Entre na lista de espera.">
+
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<!-- GSAP + ScrollTrigger -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --navy:#1A3560;
+  --navy-deep:#0D1F3C;
+  --electric:#2563EB;
+  --electric-bright:#3B82F6;
+  --white:#FFFFFF;
+  --off-white:#F8F9FA;
+  --gray-text:#6B7280;
+  --gray-soft:#9aa3b2;
+  --dark-text:#111827;
+  --green:#16A34A;
+  --bg:#030712;
+  --glass:rgba(255,255,255,0.06);
+  --glass-border:rgba(255,255,255,0.08);
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+html{scroll-behavior:smooth}
+
+body{
+  background:var(--bg);
+  color:var(--white);
+  font-family:'Inter',-apple-system,sans-serif;
+  font-weight:400;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+  line-height:1.55;
+}
+
+::selection{background:var(--electric);color:#fff}
+::-moz-selection{background:var(--electric);color:#fff}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--electric);border-radius:4px}
+
+h1,h2,h3,h4{font-family:'Sora',sans-serif;letter-spacing:-0.03em;line-height:0.98;font-weight:800}
+
+a{color:inherit;text-decoration:none}
+button,input{font-family:inherit}
+
+/* ---------- Noise overlay ---------- */
+.noise{
+  position:fixed;inset:0;z-index:9998;pointer-events:none;
+  opacity:0.025;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- Scroll progress ---------- */
+.progress-bar{
+  position:fixed;top:0;left:0;height:3px;width:100%;
+  transform:scaleX(0);transform-origin:0 50%;
+  background:linear-gradient(90deg,var(--electric),var(--electric-bright));
+  z-index:9999;box-shadow:0 0 12px rgba(37,99,235,0.7);
+}
+
+/* ---------- Custom cursor ---------- */
+.cursor{
+  position:fixed;top:0;left:0;width:40px;height:40px;border-radius:50%;
+  border:1.5px solid rgba(255,255,255,0.7);
+  transform:translate(-50%,-50%);pointer-events:none;z-index:10000;
+  mix-blend-mode:difference;
+  transition:width .28s cubic-bezier(.16,1,.3,1),height .28s cubic-bezier(.16,1,.3,1),background .28s,border-color .28s;
+  will-change:transform;
+}
+.cursor.grow{width:80px;height:80px;background:#fff;border-color:#fff}
+.cursor-dot{
+  position:fixed;top:0;left:0;width:5px;height:5px;border-radius:50%;
+  background:var(--electric-bright);transform:translate(-50%,-50%);
+  pointer-events:none;z-index:10000;
+}
+@media (hover:none),(max-width:767px){.cursor,.cursor-dot{display:none!important}}
+
+/* ---------- Preloader ---------- */
+.preloader{
+  position:fixed;inset:0;z-index:99999;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+}
+.preloader .pl-logo{
+  font-family:'Sora',sans-serif;font-weight:800;font-size:clamp(40px,8vw,72px);
+  letter-spacing:-0.05em;color:var(--white);opacity:0;
+  display:flex;align-items:center;gap:14px;
+}
+.pl-mark{width:.62em;height:.62em;flex:0 0 auto}
+.pl-logo-img{height:clamp(46px,9vw,82px);width:auto;filter:brightness(0) invert(1)}
+
+/* ---------- Layout ---------- */
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px;position:relative}
+section{position:relative}
+
+/* Vertical guiding line */
+.thread{
+  position:absolute;top:0;left:50%;width:1px;
+  background:linear-gradient(180deg,transparent,rgba(37,99,235,.45),transparent);
+  transform:translateX(-50%) scaleY(0);transform-origin:top;
+  z-index:0;pointer-events:none;
+}
+
+/* ---------- Logo / nav ---------- */
+.topbar{
+  position:fixed;top:0;left:0;right:0;z-index:900;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:22px clamp(20px,4vw,48px);
+  transition:background .4s,backdrop-filter .4s,border-color .4s;
+  border-bottom:1px solid transparent;
+}
+.topbar.scrolled{
+  background:rgba(3,7,18,.72);backdrop-filter:blur(14px);
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.logo{display:flex;align-items:center;gap:11px;font-family:'Sora';font-weight:800;
+  font-size:23px;letter-spacing:-0.04em;color:#fff}
+.logo .lm{width:22px;height:22px}
+.logo-img{height:30px;width:auto;display:block;filter:brightness(0) invert(1)}
+.nav-cta{
+  font-family:'Sora';font-weight:600;font-size:14px;padding:10px 20px;
+  border-radius:10px;border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.04);color:#fff;cursor:pointer;
+  transition:border-color .3s,background .3s,box-shadow .3s;
+}
+.nav-cta:hover{border-color:var(--electric);box-shadow:0 0 28px rgba(37,99,235,.35)}
+
+/* ---------- HERO ---------- */
+.hero{position:relative;height:100vh;min-height:680px;display:flex;align-items:center;justify-content:center;
+  text-align:center;overflow:hidden;}
+#hero-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;}
+.hero-fade{position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse 64% 56% at 50% 44%,rgba(3,7,18,.55) 18%,rgba(3,7,18,.72) 60%,var(--bg) 100%);}
+.hero-inner{position:relative;z-index:2;padding:0 22px;max-width:1000px;will-change:transform}
+
+.badge{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:9px 18px;border-radius:100px;margin-bottom:34px;
+  font-size:13.5px;font-weight:500;color:#cdd6e6;
+  background:rgba(37,99,235,.08);
+  border:1px solid rgba(59,130,246,.32);
+  box-shadow:0 0 30px rgba(37,99,235,.18);backdrop-filter:blur(10px);
+}
+.badge .spark{color:var(--electric-bright);font-size:13px}
+.badge .dotpulse{width:7px;height:7px;border-radius:50%;background:var(--electric-bright);
+  box-shadow:0 0 0 0 rgba(59,130,246,.7);animation:dotpulse 2s infinite}
+@keyframes dotpulse{0%{box-shadow:0 0 0 0 rgba(59,130,246,.55)}70%{box-shadow:0 0 0 9px rgba(59,130,246,0)}100%{box-shadow:0 0 0 0 rgba(59,130,246,0)}}
+
+.hero-headline{
+  font-size:clamp(48px,7vw,88px);font-weight:800;line-height:0.96;
+  letter-spacing:-0.045em;color:#fff;margin-bottom:30px;perspective:700px;
+}
+.hero-headline .line{display:block;overflow:hidden;padding-bottom:.04em}
+.hero-headline .accent{color:var(--electric-bright)}
+.hero-char{display:inline-block;will-change:transform,opacity;transform-origin:bottom}
+
+.hero-sub{
+  font-size:clamp(17px,2.1vw,21px);font-weight:400;color:var(--gray-soft);
+  max-width:600px;margin:0 auto 38px;line-height:1.5;
+}
+.hero-sub b{color:#cfd8e8;font-weight:500}
+
+/* form */
+.form-shell{max-width:520px;margin:0 auto}
+.email-form{
+  display:flex;gap:10px;padding:9px;border-radius:16px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  backdrop-filter:blur(20px);box-shadow:0 24px 60px -20px rgba(0,0,0,.6);
+}
+.email-form input{
+  flex:1;min-width:0;background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);border-radius:11px;
+  padding:15px 18px;color:#fff;font-size:15.5px;outline:none;
+  transition:border-color .3s,box-shadow .3s;
+}
+.email-form input::placeholder{color:#6f7892}
+.email-form input:focus{border-color:rgba(59,130,246,.6);box-shadow:0 0 0 3px rgba(37,99,235,.18)}
+.btn-primary{
+  font-family:'Sora';font-weight:600;font-size:15px;white-space:nowrap;
+  padding:15px 24px;border-radius:11px;border:none;cursor:pointer;color:#fff;
+  background:linear-gradient(180deg,var(--electric-bright),var(--electric));
+  box-shadow:0 0 40px rgba(37,99,235,.4);
+  transition:box-shadow .35s,transform .15s;will-change:transform;
+}
+.btn-primary:hover{box-shadow:0 0 60px rgba(37,99,235,.62)}
+.btn-primary:active{transform:scale(.97)}
+.form-micro{margin-top:14px;font-size:12.5px;color:#5f6880;letter-spacing:.01em}
+
+/* 2-step capture */
+.cap-step2{text-align:left}
+.cap-glass{
+  padding:24px 22px 20px;border-radius:16px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  backdrop-filter:blur(20px);box-shadow:0 24px 60px -20px rgba(0,0,0,.6);
+}
+.cap-title{font-family:'Sora';font-weight:700;font-size:21px;color:#fff;margin-bottom:6px;letter-spacing:-.02em}
+.cap-sub{font-size:14.5px;color:var(--gray-soft);line-height:1.5;margin-bottom:18px}
+.cap-form{display:flex;flex-direction:column;gap:10px}
+.cap-form input{
+  width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  border-radius:11px;padding:15px 18px;color:#fff;font-size:15.5px;outline:none;
+  transition:border-color .3s,box-shadow .3s;
+}
+.cap-form input::placeholder{color:#6f7892}
+.cap-form input:focus{border-color:rgba(59,130,246,.6);box-shadow:0 0 0 3px rgba(37,99,235,.18)}
+.btn-block{width:100%;justify-content:center;text-align:center;margin-top:2px}
+.cap-opt{margin-top:12px;font-size:12.5px;color:#8aa0c0}
+.cap-lgpd{margin-top:11px;font-size:12px;color:#5f6880;line-height:1.5}
+
+/* success state */
+.success-state{text-align:center;padding:14px 10px}
+.check-svg{width:58px;height:58px;margin-bottom:16px}
+.check-circle{stroke:var(--green);stroke-width:5;fill:none;opacity:.25}
+.check-path{stroke:var(--green);stroke-width:6;fill:none;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:60;stroke-dashoffset:60}
+.success-state h3{font-size:24px;margin-bottom:8px;color:#fff}
+.success-state p{color:var(--gray-soft);font-size:15px}
+
+/* social proof */
+.proof{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:34px;flex-wrap:wrap}
+.avatars{display:flex}
+.avatars .av{
+  width:38px;height:38px;border-radius:50%;margin-left:-11px;
+  border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;font-family:'Sora';color:#fff;
+}
+.avatars .av:first-child{margin-left:0}
+.proof-text{font-size:14px;color:var(--gray-soft)}
+.proof-text b{color:#fff;font-weight:600}
+
+/* scroll indicator */
+.scroll-ind{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);
+  z-index:3;display:flex;flex-direction:column;align-items:center;gap:12px}
+.scroll-ind .ln{width:1px;height:42px;background:linear-gradient(180deg,rgba(255,255,255,.5),transparent);
+  position:relative;overflow:hidden}
+.scroll-ind .ln::after{content:'';position:absolute;top:-50%;left:0;width:100%;height:50%;
+  background:var(--electric-bright);animation:scrolldown 1.9s cubic-bezier(.7,0,.3,1) infinite}
+@keyframes scrolldown{0%{top:-50%}100%{top:120%}}
+.scroll-ind span{font-size:10.5px;letter-spacing:.32em;text-transform:uppercase;color:#5f6880;
+  writing-mode:vertical-rl}
+
+/* ---------- generic section heading ---------- */
+.sec{padding:clamp(90px,12vh,140px) 0;position:relative;z-index:2}
+.eyebrow{font-family:'Sora';font-weight:600;font-size:13px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--electric-bright);margin-bottom:20px}
+.sec-title{font-size:clamp(36px,5vw,64px);font-weight:800;letter-spacing:-0.04em;
+  line-height:1.0;color:#fff;margin-bottom:18px;max-width:14ch}
+.sec-title .accent{color:var(--electric-bright);position:relative;white-space:nowrap}
+.sec-title .accent::after{content:'';position:absolute;left:0;bottom:.05em;width:100%;height:3px;
+  background:var(--electric);transform:scaleX(0);transform-origin:left;border-radius:2px;
+  transition:transform .6s cubic-bezier(.16,1,.3,1)}
+.sec-title .accent.lit::after{transform:scaleX(1)}
+.sec-lead{font-size:18px;color:var(--gray-soft);max-width:600px;line-height:1.55}
+
+.bignum{position:absolute;font-family:'Sora';font-weight:800;font-size:clamp(120px,22vw,300px);
+  color:rgba(255,255,255,0.022);line-height:.8;z-index:0;pointer-events:none;user-select:none;
+  letter-spacing:-.04em}
+
+.reveal{opacity:0;transform:translateY(60px)}
+
+/* glass card base */
+.glass{
+  background:var(--glass);border:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);border-radius:20px;
+}
+
+/* ---------- DOR cards ---------- */
+.pain-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:56px}
+.pain-card{
+  position:relative;padding:34px 30px 32px;border-radius:20px;
+  background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(20px);
+  transform-style:preserve-3d;
+  transition:transform .4s cubic-bezier(.16,1,.3,1),box-shadow .4s,border-color .4s;
+  will-change:transform;
+}
+.pain-card:hover{transform:translateY(-8px);border-color:rgba(59,130,246,.55);
+  box-shadow:0 24px 60px -22px rgba(37,99,235,.5)}
+.pain-card .pc-num{position:absolute;top:22px;right:26px;font-family:'Sora';font-weight:800;
+  font-size:34px;color:var(--electric);opacity:.4;letter-spacing:-.04em}
+.pain-icon{width:52px;height:52px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+  background:rgba(37,99,235,.12);border:1px solid rgba(59,130,246,.25);margin-bottom:24px;color:var(--electric-bright)}
+.pain-card h3{font-size:21px;line-height:1.18;margin-bottom:13px;color:#fff;letter-spacing:-.02em;max-width:16ch}
+.pain-card p{font-size:14.5px;color:var(--gray-soft);line-height:1.6}
+
+/* ---------- COMO FUNCIONA ---------- */
+.howsec{background:var(--navy-deep)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:30px;margin-top:62px;position:relative}
+.steps-line{position:absolute;top:32px;left:11%;right:11%;height:2px;
+  background:linear-gradient(90deg,var(--electric),rgba(59,130,246,.2));
+  transform:scaleX(0);transform-origin:left;border-radius:2px;z-index:0}
+.step{position:relative;z-index:1}
+.step .circle{
+  width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:'Sora';font-weight:800;font-size:23px;color:#fff;margin-bottom:26px;
+  background:linear-gradient(180deg,var(--electric-bright),var(--electric));
+  box-shadow:0 0 0 6px rgba(13,31,60,1),0 0 36px rgba(37,99,235,.5);
+}
+.step h3{font-size:21px;margin-bottom:12px;color:#fff;letter-spacing:-.02em}
+.step p{font-size:14.5px;color:#9fb0c9;line-height:1.6}
+.step p em{color:#cdd9ec;font-style:normal;font-weight:500}
+
+/* ---------- NICHOS ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:12px;margin-top:48px;max-width:880px}
+.chip{
+  display:inline-flex;align-items:center;gap:9px;padding:13px 20px;border-radius:100px;
+  background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(14px);
+  font-size:15px;font-weight:500;color:#d7deea;cursor:default;
+  transition:transform .28s cubic-bezier(.16,1,.3,1),border-color .28s,box-shadow .28s,background .28s;
+  will-change:transform;
+}
+.chip .ico{font-size:17px}
+.chip:hover{transform:scale(1.06) translateY(-2px);border-color:rgba(59,130,246,.6);
+  background:rgba(37,99,235,.1);box-shadow:0 0 30px rgba(37,99,235,.32)}
+.nichos-sub{margin-top:42px;font-size:19px;color:#cfd8e8;font-weight:500;max-width:38ch}
+
+/* ---------- FEATURES ---------- */
+.featsec{background:radial-gradient(ellipse 80% 70% at 50% 40%,rgba(26,53,96,.5) 0%,transparent 65%)}
+.feat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;margin-top:58px;perspective:1400px}
+.feat-card{
+  padding:38px 36px;border-radius:22px;background:var(--glass);
+  border:1px solid var(--glass-border);backdrop-filter:blur(20px);
+  transform-style:preserve-3d;will-change:transform;
+  transition:transform .4s cubic-bezier(.16,1,.3,1),border-color .4s,box-shadow .4s;
+}
+.feat-card:hover{transform:translateY(-6px);border-color:rgba(59,130,246,.4);
+  box-shadow:0 28px 70px -28px rgba(37,99,235,.45)}
+.feat-icon{width:56px;height:56px;border-radius:15px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,rgba(37,99,235,.22),rgba(37,99,235,.06));
+  border:1px solid rgba(59,130,246,.3);margin-bottom:26px;color:var(--electric-bright)}
+.feat-card h3{font-size:25px;margin-bottom:14px;color:#fff;letter-spacing:-.025em}
+.feat-card p{font-size:15.5px;color:var(--gray-soft);line-height:1.62;max-width:42ch}
+
+/* ---------- COMPARATIVO ---------- */
+.compsec{background:var(--navy-deep)}
+.comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:58px}
+.comp-col{padding:36px 34px;border-radius:22px;backdrop-filter:blur(20px);will-change:transform}
+.comp-before{background:rgba(120,30,40,.06);border:1px solid rgba(239,68,68,.22)}
+.comp-after{background:rgba(37,99,235,.07);border:1px solid rgba(59,130,246,.5);
+  box-shadow:0 0 60px -10px rgba(37,99,235,.4)}
+.comp-head{display:flex;align-items:center;gap:11px;font-family:'Sora';font-weight:700;font-size:19px;
+  padding-bottom:22px;margin-bottom:22px;border-bottom:1px solid rgba(255,255,255,.08);color:#fff}
+.comp-head .h-ico{font-size:20px}
+.comp-list{display:flex;flex-direction:column;gap:16px}
+.comp-item{display:flex;align-items:flex-start;gap:13px;font-size:15.5px;line-height:1.4}
+.comp-item .mk{flex:0 0 auto;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:700;margin-top:1px}
+.comp-before .mk{background:rgba(239,68,68,.14);color:#f87171}
+.comp-before .comp-item{color:#a9a2a6}
+.comp-after .mk{background:rgba(22,163,74,.16);color:#4ade80}
+.comp-after .comp-item{color:#dfe7f2}
+
+/* ---------- DEPOIMENTOS (WhatsApp) ---------- */
+.wa-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:54px}
+.wa-card{
+  background:#0B141A;border:1px solid rgba(255,255,255,.06);border-radius:16px;overflow:hidden;
+  box-shadow:0 14px 40px -18px rgba(0,0,0,.7);will-change:transform;
+  transition:transform .35s cubic-bezier(.16,1,.3,1),box-shadow .35s;
+  display:flex;flex-direction:column;
+}
+.wa-card:hover{transform:translateY(-6px);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.wa-head{display:flex;align-items:center;gap:11px;padding:11px 14px;background:#1F2C33;
+  border-bottom:1px solid rgba(0,0,0,.3)}
+.wa-av{width:38px;height:38px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  font-family:'Sora';font-weight:700;font-size:13px;color:#fff;
+  background:linear-gradient(135deg,#25D366,#128C7E)}
+.wa-meta{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.wa-name{font-size:14.5px;font-weight:600;color:#E9EDEF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-online{font-size:12px;color:#8aa6b1}
+.wa-online::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:#25D366;margin-right:5px;vertical-align:middle}
+.wa-body{
+  flex:1;padding:16px 14px 14px;display:flex;flex-direction:column;gap:9px;
+  background:#0B141A url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cg fill='%23ffffff' fill-opacity='0.018'%3E%3Cpath d='M0 20h40M20 0v40'/%3E%3Ccircle cx='10' cy='10' r='1.2'/%3E%3Ccircle cx='30' cy='30' r='1.2'/%3E%3C/g%3E%3C/svg%3E");
+}
+.bubble{
+  align-self:flex-start;max-width:88%;background:#202C33;color:#E9EDEF;
+  padding:8px 11px 7px;border-radius:10px;border-top-left-radius:3px;
+  font-size:13.5px;line-height:1.5;position:relative;will-change:transform,opacity;
+  box-shadow:0 1px 1px rgba(0,0,0,.2);
+}
+.bubble p{margin:0 0 2px}
+.bubble p:last-of-type{margin-bottom:0}
+.bubble .time{display:block;text-align:right;font-size:10.5px;color:#7c98a4;margin-top:3px}
+.bubble .time .ck{color:#53BDEB;letter-spacing:-1px;margin-left:3px;font-weight:700}
+.wa-note{margin-top:42px;text-align:center;display:flex;align-items:flex-start;justify-content:center;gap:9px;
+  max-width:620px;margin-left:auto;margin-right:auto;font-size:13px;color:var(--gray-text);line-height:1.55}
+.wa-note .lock{flex:0 0 auto;margin-top:1px}
+
+/* ---------- CTA FINAL ---------- */
+.ctasec{padding:clamp(110px,16vh,180px) 0;text-align:center;position:relative;overflow:hidden}
+.ctasec::before{content:'';position:absolute;inset:0;z-index:0;
+  background:radial-gradient(ellipse at 50% 50%,rgba(37,99,235,.16) 0%,transparent 68%)}
+.cta-inner{position:relative;z-index:2;max-width:760px;margin:0 auto}
+.cta-headline{font-size:clamp(40px,6vw,80px);font-weight:800;letter-spacing:-0.045em;
+  line-height:0.98;color:#fff;margin-bottom:26px}
+.cta-headline .accent{color:var(--electric-bright)}
+.cta-sub{font-size:clamp(16px,2vw,20px);color:var(--gray-soft);max-width:560px;margin:0 auto 40px;line-height:1.55}
+.cta-sub b{color:#cfd8e8;font-weight:500}
+.cta-urgency{margin-top:20px;font-size:13.5px;color:#8b94a8;display:inline-flex;align-items:center;gap:8px}
+.cta-urgency b{color:var(--electric-bright);font-weight:600}
+
+/* ---------- FOOTER ---------- */
+footer{background:#020409;padding:54px 0;border-top:1px solid rgba(255,255,255,.05);position:relative;z-index:2}
+.foot-inner{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.foot-logo{display:flex;align-items:center;gap:10px;font-family:'Sora';font-weight:800;font-size:20px;color:#fff;letter-spacing:-.04em}
+.foot-logo .lm{width:20px;height:20px}
+.foot-logo-img{height:26px;width:auto;display:block;filter:brightness(0) invert(1);opacity:.92}
+footer p{font-size:13px;color:#5f6880;max-width:46ch}
+
+/* ---------- responsive ---------- */
+@media (max-width:880px){
+  .pain-grid,.steps,.feat-grid,.comp-grid,.wa-grid{grid-template-columns:1fr}
+  .steps-line{display:none}
+  .sec-title{max-width:none}
+}
+@media (max-width:560px){
+  .email-form{flex-direction:column}
+  .btn-primary{width:100%}
+  .topbar{padding:16px 20px}
+  .nav-cta{display:none}
+  .wrap{padding:0 20px}
+  .proof{flex-direction:column;gap:10px}
+}
+</style>
+</head>
+<body>
+
+<!-- preloader -->
+<div class="preloader" id="preloader">
+  <div class="pl-logo" id="pl-logo">
+    <img class="pl-logo-img" src="assets/propus-logo.png" alt="Propus">
+  </div>
+</div>
+
+<!-- global overlays -->
+<div class="noise"></div>
+<div class="progress-bar" id="progress"></div>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-dot" id="cursor-dot"></div>
+
+<!-- topbar -->
+<header class="topbar" id="topbar">
+  <a class="logo" href="#hero" aria-label="Propus" style="text-decoration:none">
+    <img class="logo-img" src="assets/propus-logo.png" alt="Propus">
+  </a>
+  <button class="nav-cta" data-jump>Entrar na lista</button>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero" id="hero">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-fade"></div>
+  <div class="hero-inner" id="hero-inner">
+    <div class="badge"><span class="dotpulse"></span><span class="spark">✦</span> Lista de espera aberta — acesso antecipado gratuito</div>
+
+    <h1 class="hero-headline" id="hero-headline">
+      <span class="line">Chega de perder</span>
+      <span class="line">cliente por culpa</span>
+      <span class="line">de orçamento no</span>
+      <span class="line"><span class="accent">WhatsApp.</span></span>
+    </h1>
+
+    <p class="hero-sub" id="hero-sub">O Propus transforma o que você digita em um <b>orçamento profissional em PDF</b> — e te avisa quando o cliente abriu.</p>
+
+    <div class="form-shell" id="hero-form-shell">
+      <div class="capture" data-capture>
+        <div class="cap-step cap-step1">
+          <form class="email-form" data-step1>
+            <input type="email" required placeholder="seu@email.com" aria-label="E-mail">
+            <button type="submit" class="btn-primary">Quero acesso antecipado →</button>
+          </form>
+          <div class="form-micro">Gratuito · Sem spam · Cancele quando quiser</div>
+        </div>
+        <div class="cap-step cap-step2" hidden>
+          <div class="cap-glass">
+            <h3 class="cap-title">Boa, você está quase lá. 🎉</h3>
+            <p class="cap-sub">Deixa seu nome e WhatsApp pra te avisar na hora que o Propus abrir.</p>
+            <form class="cap-form" data-step2>
+              <input type="text" name="nome" placeholder="Seu nome completo" aria-label="Nome completo" autocomplete="name">
+              <input type="tel" name="whatsapp" placeholder="WhatsApp com DDD (ex: 11 99999-9999)" aria-label="WhatsApp" autocomplete="tel">
+              <button type="submit" class="btn-primary btn-block">Confirmar minha vaga →</button>
+            </form>
+            <div class="cap-opt">* Opcional, mas você recebe no WhatsApp antes de todo mundo</div>
+            <div class="cap-lgpd">Ao continuar, você concorda em receber comunicações do Propus via e-mail e WhatsApp. Sem spam. Cancele quando quiser.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="proof" id="hero-proof">
+      <div class="avatars">
+        <div class="av" style="background:linear-gradient(135deg,#2563EB,#1A3560)">JM</div>
+        <div class="av" style="background:linear-gradient(135deg,#3B82F6,#2563EB)">RS</div>
+        <div class="av" style="background:linear-gradient(135deg,#1A3560,#0D1F3C)">AC</div>
+        <div class="av" style="background:linear-gradient(135deg,#2563EB,#3B82F6)">TL</div>
+        <div class="av" style="background:linear-gradient(135deg,#0D1F3C,#2563EB)">+</div>
+      </div>
+      <div class="proof-text"><b><span class="counter" data-counter="247">0</span> autônomos</b> já estão na lista</div>
+    </div>
+  </div>
+
+  <div class="scroll-ind" id="scroll-ind">
+    <div class="ln"></div>
+    <span>scroll</span>
+  </div>
+</section>
+
+<!-- ============ SEÇÃO 2 — A DOR ============ -->
+<section class="sec" id="dor">
+  <span class="bignum" style="top:40px;left:-10px">01</span>
+  <div class="wrap">
+    <div class="reveal"><div class="eyebrow">A dor de todo dia</div></div>
+    <h2 class="sec-title reveal">Você se identifica<br>com algum <span class="accent">desses?</span></h2>
+
+    <div class="pain-grid">
+      <div class="pain-card">
+        <span class="pc-num">01</span>
+        <div class="pain-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><circle cx="8.5" cy="11.5" r=".6" fill="currentColor"/><circle cx="12" cy="11.5" r=".6" fill="currentColor"/><circle cx="15.5" cy="11.5" r=".6" fill="currentColor"/></svg>
+        </div>
+        <h3>"Mandei o orçamento e o cliente sumiu"</h3>
+        <p>Você fica olhando o WhatsApp esperando resposta que nunca vem. Não sabe se ele leu, se achou caro, se esqueceu.</p>
+      </div>
+      <div class="pain-card">
+        <span class="pc-num">02</span>
+        <div class="pain-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13.5c1.5-1 2-.2 3 .4s1.6 1 3-.2"/><path d="M9 17c1.4.8 2-.2 3 .3"/></svg>
+        </div>
+        <h3>"Meu orçamento parece lista de mercado"</h3>
+        <p>Texto corrido, sem formatação, sem seu nome de empresa. O cliente compara com o concorrente que tem PDF bonito e vai com o outro.</p>
+      </div>
+      <div class="pain-card">
+        <span class="pc-num">03</span>
+        <div class="pain-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+        </div>
+        <h3>"Fico refazendo do zero toda vez"</h3>
+        <p>Copia e cola, esquece de mudar o valor, manda o nome errado pro cliente. Um trabalho que toma tempo e não precisa existir.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SEÇÃO 3 — COMO FUNCIONA ============ -->
+<section class="sec howsec" id="como">
+  <div class="wrap">
+    <div class="reveal"><div class="eyebrow">Como funciona</div></div>
+    <h2 class="sec-title reveal">3 minutos.<br>Orçamento fechado.</h2>
+
+    <div class="steps">
+      <div class="steps-line" id="steps-line"></div>
+      <div class="step reveal">
+        <div class="circle">1</div>
+        <h3>Descreva em texto livre</h3>
+        <p><em>"Instalação elétrica residencial, mão de obra R$400, disjuntores R$150, prazo 5 dias"</em> — a IA estrutura tudo.</p>
+      </div>
+      <div class="step reveal">
+        <div class="circle">2</div>
+        <h3>PDF gerado na hora</h3>
+        <p>Com seu logo, sua cor e 3 layouts profissionais. O cliente abre e vê uma empresa de verdade.</p>
+      </div>
+      <div class="step reveal">
+        <div class="circle">3</div>
+        <h3>Link enviado. Notificação recebida.</h3>
+        <p>O cliente aceita com um clique. Você recebe o alerta no mesmo instante.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SEÇÃO 4 — NICHOS ============ -->
+<section class="sec" id="nichos">
+  <span class="bignum" style="bottom:0;right:-10px">↳</span>
+  <div class="wrap">
+    <div class="reveal"><div class="eyebrow">Para quem é</div></div>
+    <h2 class="sec-title reveal" style="max-width:18ch">Feito para quem trabalha por conta própria</h2>
+
+    <div class="chips" id="chips">
+      <div class="chip"><span class="ico">🎨</span> Designer</div>
+      <div class="chip"><span class="ico">📸</span> Fotógrafo</div>
+      <div class="chip"><span class="ico">⚡</span> Eletricista</div>
+      <div class="chip"><span class="ico">🪚</span> Marceneiro</div>
+      <div class="chip"><span class="ico">🖥️</span> Técnico de TI</div>
+      <div class="chip"><span class="ico">🏋️</span> Personal Trainer</div>
+      <div class="chip"><span class="ico">🎬</span> Videomaker</div>
+      <div class="chip"><span class="ico">🖌️</span> Pintor</div>
+      <div class="chip"><span class="ico">🌿</span> Paisagista</div>
+      <div class="chip"><span class="ico">🔨</span> Pedreiro</div>
+      <div class="chip"><span class="ico">💅</span> Manicure</div>
+      <div class="chip"><span class="ico">🎵</span> DJ / Som</div>
+    </div>
+
+    <p class="nichos-sub reveal">Se você cobra por serviço e passa orçamento, o Propus é pra você.</p>
+  </div>
+</section>
+
+<!-- ============ SEÇÃO 5 — FEATURES ============ -->
+<section class="sec featsec" id="features">
+  <div class="wrap">
+    <div class="reveal"><div class="eyebrow">Recursos</div></div>
+    <h2 class="sec-title reveal">Tudo que você precisa.<br>Nada que você não usa.</h2>
+
+    <div class="feat-grid">
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.4L12 17l-1.9-5.6L4.5 10l5.6-1.4L12 3z"/><path d="M19 15l.6 1.8L21.5 17l-1.9.5L19 19l-.6-1.5L16.5 17l1.9-.2L19 15z"/></svg>
+        </div>
+        <h3>IA que entende você</h3>
+        <p>Descreve como fala, a IA transforma em orçamento estruturado. Sem formulário complexo, sem campo por campo.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 11.5l1 2.1 2.3.2-1.7 1.6.5 2.3-2.1-1.2-2.1 1.2.5-2.3L8.7 13.8l2.3-.2 1-2.1z"/></svg>
+        </div>
+        <h3>PDF que impressiona</h3>
+        <p>3 templates profissionais com seu logo e sua cor. O cliente abre e para de comparar preço — porque parece mais sério.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7 16 2-7 7-2L4 4z"/><path d="M14 14l4.5 4.5"/></svg>
+        </div>
+        <h3>Link de aceite</h3>
+        <p>O cliente recebe o link, abre no celular, aceita com um toque. Sem app, sem cadastro, sem fricção.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9z"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        </div>
+        <h3>Você sempre sabe</h3>
+        <p>Notificação quando o cliente abriu. Histórico de tudo. Chega de "será que ele viu?" — você sabe.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SEÇÃO 6 — COMPARATIVO ============ -->
+<section class="sec compsec" id="comparativo">
+  <div class="wrap">
+    <div class="reveal"><div class="eyebrow">Antes e depois</div></div>
+    <h2 class="sec-title reveal" style="max-width:20ch">O que o cliente vê faz diferença.</h2>
+
+    <div class="comp-grid">
+      <div class="comp-col comp-before" id="comp-before">
+        <div class="comp-head"><span class="h-ico">📱</span> WhatsApp digitado</div>
+        <div class="comp-list">
+          <div class="comp-item"><span class="mk">✕</span> Texto sem formatação</div>
+          <div class="comp-item"><span class="mk">✕</span> Sem logo ou identidade</div>
+          <div class="comp-item"><span class="mk">✕</span> Não sabe se foi lido</div>
+          <div class="comp-item"><span class="mk">✕</span> Cliente some sem responder</div>
+          <div class="comp-item"><span class="mk">✕</span> Retrabalho em cada envio</div>
+          <div class="comp-item"><span class="mk">✕</span> Parece amador</div>
+        </div>
+      </div>
+      <div class="comp-col comp-after" id="comp-after">
+        <div class="comp-head"><span class="h-ico" style="color:#3B82F6">✦</span> Propus</div>
+        <div class="comp-list">
+          <div class="comp-item"><span class="mk">✓</span> PDF profissional com layout</div>
+          <div class="comp-item"><span class="mk">✓</span> Seu logo, sua cor, sua marca</div>
+          <div class="comp-item"><span class="mk">✓</span> Notificação de abertura</div>
+          <div class="comp-item"><span class="mk">✓</span> Cliente aceita com um clique</div>
+          <div class="comp-item"><span class="mk">✓</span> Histórico automático</div>
+          <div class="comp-item"><span class="mk">✓</span> Parece empresa de verdade</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DEPOIMENTOS (WhatsApp) ============ -->
+<section class="sec" id="depoimentos">
+  <div class="wrap">
+    <div class="reveal"><div class="eyebrow">Depoimentos</div></div>
+    <h2 class="sec-title reveal" style="max-width:20ch">O que tá <span class="accent">mudando</span> na vida de quem já testa o Propus</h2>
+    <p class="sec-lead reveal">Prints reais do grupo de beta testers.</p>
+
+    <div class="wa-grid">
+
+      <!-- Card 1 -->
+      <article class="whatsapp-card wa-card">
+        <div class="wa-head">
+          <div class="wa-av" style="background:linear-gradient(135deg,#25D366,#0e7a5f)">JP</div>
+          <div class="wa-meta"><span class="wa-name">João Paulo ⚡</span><span class="wa-online">online</span></div>
+        </div>
+        <div class="wa-body">
+          <div class="bubble">
+            <p>cara eu mandei o orçamento pelo propus ontem à noite pra um cliente</p>
+            <p>ele aceitou 7h da manhã hoje</p>
+            <p>sem eu nem precisar falar nada</p>
+            <p>já fechei 3 esse mês assim</p>
+          </div>
+          <div class="bubble">
+            <p>antes eu ficava ligando, mandando mensagem "oi, viu meu orçamento?"</p>
+            <p>agora eu só recebo a notificação de aceito</p>
+            <span class="time">08:14<span class="ck">✓✓</span></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 2 -->
+      <article class="whatsapp-card wa-card">
+        <div class="wa-head">
+          <div class="wa-av" style="background:linear-gradient(135deg,#34d399,#0e7a5f)">CF</div>
+          <div class="wa-meta"><span class="wa-name">Camila Fotografia ✨</span><span class="wa-online">online</span></div>
+        </div>
+        <div class="wa-body">
+          <div class="bubble">
+            <p>gente, aumentei meu pacote básico de 800 pra 1.400</p>
+            <p>e o cliente nem reclamou</p>
+            <p>acho que o PDF deixou parecer mais profissional</p>
+            <p>tipo, parece que eu cobro esse valor mesmo sabe?</p>
+          </div>
+          <div class="bubble">
+            <p>antes eu mandava tudo no zap e ficava com vergonha de cobrar mais caro</p>
+            <p>agora parece que tem uma empresa por trás</p>
+            <span class="time">19:47<span class="ck">✓✓</span></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 3 -->
+      <article class="whatsapp-card wa-card">
+        <div class="wa-head">
+          <div class="wa-av" style="background:linear-gradient(135deg,#25D366,#128C7E)">RT</div>
+          <div class="wa-meta"><span class="wa-name">Rafael TI 💻</span><span class="wa-online">online</span></div>
+        </div>
+        <div class="wa-body">
+          <div class="bubble">
+            <p>minha agenda tá lotada até o mês que vem</p>
+            <p>acho que é porque quando o cliente vê o orçamento ele entende exatamente o que tá contratando</p>
+            <p>não tem mais aquela coisa de "ah mas tá caro"</p>
+            <p>porque tá tudo discriminado, ficou profissional demais</p>
+            <span class="time">11:32<span class="ck">✓✓</span></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 4 -->
+      <article class="whatsapp-card wa-card">
+        <div class="wa-head">
+          <div class="wa-av" style="background:linear-gradient(135deg,#2dd4a7,#0e7a5f)">MP</div>
+          <div class="wa-meta"><span class="wa-name">Marcelo Pinturas 🖌️</span><span class="wa-online">online</span></div>
+        </div>
+        <div class="wa-body">
+          <div class="bubble">
+            <p>nunca usei nada assim na vida</p>
+            <p>cheguei a fazer o orçamento descrevendo assim "pintura de sala, mão de obra 600, tinta 2 galões 180"</p>
+            <p>e o sistema organizou tudo certinho</p>
+            <p>tabela, total, validade, tudo</p>
+            <p>minha filha viu e perguntou se eu tinha contratado uma empresa de design kkkkk</p>
+            <span class="time">16:03<span class="ck">✓✓</span></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 5 -->
+      <article class="whatsapp-card wa-card">
+        <div class="wa-head">
+          <div class="wa-av" style="background:linear-gradient(135deg,#25D366,#0e7a5f)">LP</div>
+          <div class="wa-meta"><span class="wa-name">Letícia Personal 🏋️</span><span class="wa-online">online</span></div>
+        </div>
+        <div class="wa-body">
+          <div class="bubble">
+            <p>o cliente abriu o orçamento e me mandou mensagem</p>
+            <p>"nossa, muito profissional, vou fechar sim"</p>
+            <p>isso nunca tinha acontecido antes</p>
+            <p>normalmente ficava no vácuo por dias</p>
+          </div>
+          <div class="bubble">
+            <p>e eu soube que ele abriu antes mesmo de ele me escrever</p>
+            <p>apareceu a notificação aqui</p>
+            <p>aí fui lá e falei oi, aí ele fechou na hora</p>
+            <span class="time">20:15<span class="ck">✓✓</span></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 6 -->
+      <article class="whatsapp-card wa-card">
+        <div class="wa-head">
+          <div class="wa-av" style="background:linear-gradient(135deg,#34d399,#128C7E)">DS</div>
+          <div class="wa-meta"><span class="wa-name">Douglas Marcenaria 🪚</span><span class="wa-online">online</span></div>
+        </div>
+        <div class="wa-body">
+          <div class="bubble">
+            <p>to fechando mais serviço com preço mais alto</p>
+            <p>antes quando mandava no zap o cliente sempre pedia desconto</p>
+            <p>agora com o PDF ninguém mais pede</p>
+            <p>acho que quando vê a apresentação profissional o cara já entende que vale o preço</p>
+            <span class="time">13:58<span class="ck">✓✓</span></span>
+          </div>
+        </div>
+      </article>
+
+    </div>
+
+    <p class="wa-note reveal">
+      <svg class="lock" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>Os nomes foram alterados para preservar a privacidade dos beta testers. Os resultados variam de acordo com o serviço e o mercado de cada profissional.</span>
+    </p>
+  </div>
+</section>
+
+<!-- ============ SEÇÃO 7 — CTA FINAL ============ -->
+<section class="ctasec" id="cta">
+  <div class="cta-inner">
+    <h2 class="cta-headline reveal">Você trabalha duro.<br>Seu orçamento precisa<br><span class="accent">trabalhar junto.</span></h2>
+    <p class="cta-sub reveal">Entra na lista agora e garante acesso antecipado ao Propus — <b>com desconto especial de lançamento para os primeiros 300.</b></p>
+
+    <div class="form-shell reveal" id="cta-form-shell" style="margin-left:auto;margin-right:auto">
+      <div class="capture" data-capture>
+        <div class="cap-step cap-step1">
+          <form class="email-form" data-step1>
+            <input type="email" required placeholder="seu@email.com" aria-label="E-mail">
+            <button type="submit" class="btn-primary" data-magnetic>Garantir meu lugar →</button>
+          </form>
+          <div class="form-micro">Gratuito · Sem spam · Cancele quando quiser</div>
+        </div>
+        <div class="cap-step cap-step2" hidden>
+          <div class="cap-glass">
+            <h3 class="cap-title">Boa, você está quase lá. 🎉</h3>
+            <p class="cap-sub">Deixa seu nome e WhatsApp pra te avisar na hora que o Propus abrir.</p>
+            <form class="cap-form" data-step2>
+              <input type="text" name="nome" placeholder="Seu nome completo" aria-label="Nome completo" autocomplete="name">
+              <input type="tel" name="whatsapp" placeholder="WhatsApp com DDD (ex: 11 99999-9999)" aria-label="WhatsApp" autocomplete="tel">
+              <button type="submit" class="btn-primary btn-block">Confirmar minha vaga →</button>
+            </form>
+            <div class="cap-opt">* Opcional, mas você recebe no WhatsApp antes de todo mundo</div>
+            <div class="cap-lgpd">Ao continuar, você concorda em receber comunicações do Propus via e-mail e WhatsApp. Sem spam. Cancele quando quiser.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cta-urgency reveal">⚡ <b><span class="counter" data-counter="247">0</span> pessoas</b> já garantiram o lugar · Restam 53 vagas com desconto</div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap foot-inner">
+    <div class="foot-logo">
+      <img class="foot-logo-img" src="assets/propus-logo.png" alt="Propus">
+    </div>
+    <p>© 2025 Propus — Feito para quem trabalha por conta própria no Brasil.</p>
+  </div>
+</footer>
+
+<script>
+/* ====================================================================
+   PROPUS — landing interactions
+   ==================================================================== */
+gsap.registerPlugin(ScrollTrigger);
+
+const IS_MOBILE = window.matchMedia('(max-width:767px)').matches || ('ontouchstart' in window && window.innerWidth < 900);
+const STAG = IS_MOBILE ? 0.5 : 1; // stagger multiplier
+
+/* ----------------------------------------------------------------
+   1. THREE.JS — particle network hero background
+---------------------------------------------------------------- */
+let camera, sceneZoom = { z: 5 };
+(function initThree(){
+  const canvas = document.getElementById('hero-canvas');
+  if(!window.THREE){ return; }
+
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:true });
+  renderer.setClearColor(0x000000, 0);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  const scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+  camera.position.z = 5;
+
+  const group = new THREE.Group();
+  scene.add(group);
+
+  const COUNT = IS_MOBILE ? 80 : 180;
+  const RANGE = 6;
+  const positions = new Float32Array(COUNT * 3);
+  const basePos = [];
+  for(let i=0;i<COUNT;i++){
+    const x = (Math.random()-0.5)*RANGE;
+    const y = (Math.random()-0.5)*RANGE;
+    const z = (Math.random()-0.5)*RANGE;
+    positions[i*3]=x; positions[i*3+1]=y; positions[i*3+2]=z;
+    basePos.push({x,y,z});
+  }
+
+  // round glowing sprite for points
+  const tex = (function(){
+    const c = document.createElement('canvas'); c.width=c.height=64;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(32,32,0,32,32,32);
+    grd.addColorStop(0,'rgba(120,170,255,1)');
+    grd.addColorStop(.35,'rgba(37,99,235,.85)');
+    grd.addColorStop(1,'rgba(37,99,235,0)');
+    g.fillStyle=grd; g.beginPath(); g.arc(32,32,32,0,Math.PI*2); g.fill();
+    const t = new THREE.CanvasTexture(c); return t;
+  })();
+
+  const ptsGeo = new THREE.BufferGeometry();
+  ptsGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+  const ptsMat = new THREE.PointsMaterial({
+    size:0.14, map:tex, transparent:true, opacity:0.55,
+    depthWrite:false, blending:THREE.AdditiveBlending, color:0x2563EB
+  });
+  const points = new THREE.Points(ptsGeo, ptsMat);
+  group.add(points);
+
+  // line segments (rebuilt each frame)
+  const MAX_LINES = COUNT * 8;
+  const linePos = new Float32Array(MAX_LINES * 6);
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos,3));
+  const lineMat = new THREE.LineBasicMaterial({
+    color:0x2563EB, transparent:true, opacity:0.08,
+    blending:THREE.AdditiveBlending, depthWrite:false
+  });
+  const lines = new THREE.LineSegments(lineGeo, lineMat);
+  group.add(lines);
+
+  const DIST = 2.5, DIST2 = DIST*DIST;
+  const mouse = { x:0, y:0, tx:0, ty:0 };
+  window.addEventListener('mousemove', e=>{
+    mouse.tx = (e.clientX/window.innerWidth - 0.5);
+    mouse.ty = (e.clientY/window.innerHeight - 0.5);
+  });
+
+  function resize(){
+    const w = canvas.clientWidth || window.innerWidth;
+    const h = canvas.clientHeight || window.innerHeight;
+    if(!w || !h) return;
+    renderer.setSize(w,h,false);
+    camera.aspect = w/h; camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('load', ()=>{ resize(); setTimeout(resize, 350); });
+  if(window.ResizeObserver){ new ResizeObserver(resize).observe(canvas); }
+  resize();
+
+  const pos = ptsGeo.attributes.position.array;
+  let t = 0;
+  function animate(){
+    t += 0.01;
+    // pulse Y
+    for(let i=0;i<COUNT;i++){
+      pos[i*3+1] = basePos[i].y + Math.sin(t + i)*0.18;
+    }
+    ptsGeo.attributes.position.needsUpdate = true;
+
+    // rebuild lines
+    let n = 0;
+    for(let i=0;i<COUNT;i++){
+      const ax=pos[i*3], ay=pos[i*3+1], az=pos[i*3+2];
+      for(let j=i+1;j<COUNT;j++){
+        const dx=ax-pos[j*3], dy=ay-pos[j*3+1], dz=az-pos[j*3+2];
+        const d2=dx*dx+dy*dy+dz*dz;
+        if(d2<DIST2 && n<MAX_LINES){
+          linePos[n*6]=ax; linePos[n*6+1]=ay; linePos[n*6+2]=az;
+          linePos[n*6+3]=pos[j*3]; linePos[n*6+4]=pos[j*3+1]; linePos[n*6+5]=pos[j*3+2];
+          n++;
+        }
+      }
+    }
+    lineGeo.setDrawRange(0, n*2);
+    lineGeo.attributes.position.needsUpdate = true;
+
+    // continuous rotation
+    group.rotation.y += 0.0008;
+    group.rotation.x += 0.0003;
+
+    // mouse tilt (lerp, max ±0.3)
+    mouse.x += (mouse.tx - mouse.x)*0.05;
+    mouse.y += (mouse.ty - mouse.y)*0.05;
+    group.rotation.y += (mouse.x*0.3 - 0)*0.02;
+    group.rotation.x += (mouse.y*0.3 - 0)*0.02;
+
+    // scroll-driven camera recede
+    camera.position.z += (sceneZoom.z - camera.position.z)*0.08;
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+/* ----------------------------------------------------------------
+   2. Split headline into chars
+---------------------------------------------------------------- */
+function splitChars(el){
+  el.querySelectorAll('.line').forEach(line=>{
+    const inner = line.querySelector('.accent') || line;
+    const text = inner.textContent;
+    inner.innerHTML = '';
+    [...text].forEach(ch=>{
+      const s = document.createElement('span');
+      s.className='hero-char';
+      s.textContent = ch===' ' ? '\u00A0' : ch;
+      inner.appendChild(s);
+    });
+  });
+}
+splitChars(document.getElementById('hero-headline'));
+
+/* ----------------------------------------------------------------
+   3. Preloader → reveal page
+---------------------------------------------------------------- */
+window.addEventListener('load', ()=>{
+  const tl = gsap.timeline();
+  tl.fromTo('#pl-logo', {scale:0.6, opacity:0}, {scale:1, opacity:1, duration:0.8, ease:'power3.out'})
+    .to('#pl-logo', {opacity:0, duration:0.4, delay:0.35}, '+=0')
+    .to('#preloader', {opacity:0, duration:0.5, ease:'power2.inout', onComplete(){
+        document.getElementById('preloader').style.display='none';
+    }}, '-=0.1');
+
+  // hero entrance
+  tl.from('.hero-char', {
+    yPercent:120, opacity:0, rotateX:-40,
+    stagger:0.025*STAG, duration:0.8, ease:'power4.out'
+  }, '-=0.2')
+  .from('.badge', {y:20, opacity:0, duration:0.6, ease:'power3.out'}, '<0.1')
+  .from('#hero-sub', {y:24, opacity:0, duration:0.7, ease:'power3.out'}, '-=0.5')
+  .from('#hero-form-shell', {y:28, opacity:0, duration:0.7, ease:'power3.out'}, '-=0.45')
+  .from('#hero-proof', {y:20, opacity:0, duration:0.6, ease:'power3.out'}, '-=0.45')
+  .from('#scroll-ind', {opacity:0, duration:0.6}, '-=0.3');
+});
+
+/* ----------------------------------------------------------------
+   4. Scroll progress bar
+---------------------------------------------------------------- */
+gsap.to('#progress', {
+  scaleX:1, ease:'none',
+  scrollTrigger:{ scrub:0.3, start:0, end:'max' }
+});
+
+/* ----------------------------------------------------------------
+   5. Topbar background on scroll
+---------------------------------------------------------------- */
+ScrollTrigger.create({
+  start: 80, end:'max',
+  onUpdate(self){
+    document.getElementById('topbar').classList.toggle('scrolled', self.scroll() > 80);
+  }
+});
+
+/* ----------------------------------------------------------------
+   6. HERO pin — 200vh: camera recedes, headline shrinks
+---------------------------------------------------------------- */
+if(!IS_MOBILE){
+  const pinTl = gsap.timeline({
+    scrollTrigger:{
+      trigger:'#hero', start:'top top', end:'+=200%',
+      pin:true, scrub:1, anticipatePin:1
+    }
+  });
+  pinTl.to(sceneZoom, {z:12, ease:'none'}, 0)
+       .to('#hero-inner', {scale:0.6, y:-120, opacity:0, ease:'power2.in'}, 0)
+       .to('#scroll-ind', {opacity:0, duration:0.2}, 0);
+}
+
+/* ----------------------------------------------------------------
+   7. Section reveals (batch)
+---------------------------------------------------------------- */
+ScrollTrigger.batch('.reveal', {
+  start:'top 86%',
+  onEnter: els => gsap.to(els, {
+    opacity:1, y:0, duration:1, stagger:0.15*STAG, ease:'power3.out', overwrite:true
+  })
+});
+
+/* underline accent in section titles */
+document.querySelectorAll('.sec-title .accent').forEach(acc=>{
+  ScrollTrigger.create({
+    trigger:acc, start:'top 82%', once:true,
+    onEnter(){ setTimeout(()=>acc.classList.add('lit'), 350); }
+  });
+});
+
+/* ----------------------------------------------------------------
+   8. Pain cards — 3D flip entrance
+---------------------------------------------------------------- */
+gsap.fromTo('.pain-card',
+  {rotateY:80, opacity:0, transformPerspective:900, transformOrigin:'left center'},
+  {rotateY:0, opacity:1, stagger:0.2*STAG, duration:0.9, ease:'power3.out',
+   immediateRender:false, clearProps:'transform,opacity',
+   scrollTrigger:{ trigger:'.pain-grid', start:'top 80%' }
+  });
+
+/* ----------------------------------------------------------------
+   9. Steps connector line
+---------------------------------------------------------------- */
+const stepsLine = document.getElementById('steps-line');
+if(stepsLine){
+  gsap.to(stepsLine, {
+    scaleX:1, ease:'power2.inout', duration:1,
+    scrollTrigger:{ trigger:'.steps', start:'top 72%' }
+  });
+}
+
+/* ----------------------------------------------------------------
+   10. Features — rotateY entrance
+---------------------------------------------------------------- */
+gsap.fromTo('.feat-card',
+  {rotateY:55, opacity:0, y:30, transformPerspective:1400, transformOrigin:'center center'},
+  {rotateY:0, opacity:1, y:0, stagger:0.15*STAG, duration:0.9, ease:'power3.out',
+   immediateRender:false, clearProps:'transform,opacity',
+   scrollTrigger:{ trigger:'.feat-grid', start:'top 80%' }
+  });
+
+/* ----------------------------------------------------------------
+   11. Comparativo — opposite slide-in
+---------------------------------------------------------------- */
+ScrollTrigger.create({
+  trigger:'.comp-grid', start:'top 80%', once:true,
+  onEnter(){
+    gsap.fromTo('#comp-before', {x:-60, opacity:0}, {x:0, opacity:1, duration:0.9, ease:'power3.out', clearProps:'transform,opacity'});
+    gsap.fromTo('#comp-after',  {x:60, opacity:0}, {x:0, opacity:1, duration:0.9, ease:'power3.out', clearProps:'transform,opacity'});
+  }
+});
+
+/* ----------------------------------------------------------------
+   11b. Depoimentos WhatsApp — cards rise + bubbles type in
+---------------------------------------------------------------- */
+gsap.utils.toArray('.whatsapp-card').forEach((card,i)=>{
+  ScrollTrigger.create({
+    trigger:card, start:'top 88%', once:true,
+    onEnter(){
+      gsap.fromTo(card, {y:80, opacity:0},
+        {y:0, opacity:1, duration:0.7, ease:'power3.out', clearProps:'transform,opacity'});
+      const bubbles = card.querySelectorAll('.bubble');
+      gsap.fromTo(bubbles, {x:-30, opacity:0, scale:0.95},
+        {x:0, opacity:1, scale:1, stagger:0.3, duration:0.5, delay:0.25, ease:'power2.out',
+         clearProps:'transform'});
+    }
+  });
+});
+
+/* ----------------------------------------------------------------
+   12. Counters
+---------------------------------------------------------------- */
+document.querySelectorAll('.counter').forEach(el=>{
+  const target = +el.dataset.counter;
+  ScrollTrigger.create({
+    trigger:el, start:'top 92%', once:true,
+    onEnter(){
+      const o = {val:0};
+      gsap.to(o, {val:target, duration:2, ease:'power2.out',
+        onUpdate(){ el.textContent = Math.round(o.val); }});
+    }
+  });
+});
+
+/* ----------------------------------------------------------------
+   13. Custom cursor (lerp) + hover grow
+---------------------------------------------------------------- */
+if(!IS_MOBILE){
+  const cur = document.getElementById('cursor');
+  const dot = document.getElementById('cursor-dot');
+  let mx=window.innerWidth/2, my=window.innerHeight/2, cx=mx, cy=my;
+  window.addEventListener('mousemove', e=>{ mx=e.clientX; my=e.clientY; dot.style.transform=`translate(${mx}px,${my}px) translate(-50%,-50%)`; });
+  (function loop(){
+    cx += (mx-cx)*0.16; cy += (my-cy)*0.16;
+    cur.style.transform = `translate(${cx}px,${cy}px) translate(-50%,-50%)`;
+    requestAnimationFrame(loop);
+  })();
+  const hoverSel = 'a, button, .chip, input, [data-magnetic], [data-jump]';
+  document.querySelectorAll(hoverSel).forEach(el=>{
+    el.addEventListener('mouseenter', ()=>cur.classList.add('grow'));
+    el.addEventListener('mouseleave', ()=>cur.classList.remove('grow'));
+  });
+}
+
+/* ----------------------------------------------------------------
+   14. Magnetic button
+---------------------------------------------------------------- */
+if(!IS_MOBILE){
+  document.querySelectorAll('[data-magnetic]').forEach(btn=>{
+    const RADIUS = 80;
+    btn.addEventListener('mousemove', e=>{
+      const r = btn.getBoundingClientRect();
+      const cx = r.left + r.width/2, cy = r.top + r.height/2;
+      const dx = e.clientX - cx, dy = e.clientY - cy;
+      const dist = Math.hypot(dx,dy);
+      if(dist < RADIUS + Math.max(r.width,r.height)/2){
+        gsap.to(btn, {x:dx*0.35, y:dy*0.4, duration:0.4, ease:'power3.out'});
+      }
+    });
+    btn.addEventListener('mouseleave', ()=>{
+      gsap.to(btn, {x:0, y:0, duration:0.6, ease:'elastic.out(1,0.4)'});
+    });
+  });
+}
+
+/* ----------------------------------------------------------------
+   15. Form submit → success state
+---------------------------------------------------------------- */
+const SUCCESS_HTML = `
+  <div class="success-state">
+    <svg class="check-svg" viewBox="0 0 52 52">
+      <circle class="check-circle" cx="26" cy="26" r="23"/>
+      <path class="check-path" d="M15 27 l7 7 l15 -16"/>
+    </svg>
+    <h3>Você está na lista. 🎉</h3>
+    <p>Te avisamos quando o Propus lançar.</p>
+  </div>`;
+
+document.querySelectorAll('[data-capture]').forEach(capture=>{
+  const shell = capture.closest('.form-shell');
+  const step1 = capture.querySelector('.cap-step1');
+  const step2 = capture.querySelector('.cap-step2');
+  const form1 = capture.querySelector('[data-step1]');
+  const form2 = capture.querySelector('[data-step2]');
+
+  // Step 1 → reveal step 2 with slideDown
+  form1.addEventListener('submit', e=>{
+    e.preventDefault();
+    const email = form1.querySelector('input');
+    if(!email.checkValidity()){ email.reportValidity(); return; }
+    gsap.to(step1, {opacity:0, y:-8, duration:0.25, ease:'power2.in', onComplete(){
+      step1.style.display = 'none';
+      step2.hidden = false;
+      step2.style.overflow = 'hidden';
+      gsap.set(step2, {height:'auto'});
+      gsap.from(step2, {
+        height:0, opacity:0, y:-10, duration:0.55, ease:'power3.out',
+        onComplete(){
+          step2.style.overflow = '';
+          gsap.set(step2, {clearProps:'height,transform'});
+          const n = form2.querySelector('input'); if(n && !IS_MOBILE) n.focus();
+        }
+      });
+    }});
+  });
+
+  // Step 2 → success (name/whatsapp optional)
+  form2.addEventListener('submit', e=>{
+    e.preventDefault();
+    gsap.to(capture, {scale:0.95, opacity:0, duration:0.3, ease:'power2.in', onComplete(){
+      capture.remove();
+      const div = document.createElement('div');
+      div.innerHTML = SUCCESS_HTML;
+      const node = div.firstElementChild;
+      shell.appendChild(node);
+      gsap.from(node, {scale:0.8, opacity:0, duration:0.5, ease:'back.out(1.7)'});
+      gsap.fromTo(node.querySelector('.check-path'),
+        {strokeDashoffset:60}, {strokeDashoffset:0, duration:0.6, delay:0.3, ease:'power2.inout'});
+    }});
+  });
+});
+
+/* ----------------------------------------------------------------
+   16. Jump-to-form buttons
+---------------------------------------------------------------- */
+document.querySelectorAll('[data-jump]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const cta = document.getElementById('cta');
+    window.scrollTo({ top: cta.offsetTop - 40, behavior:'smooth' });
+  });
+});
+
+/* refresh ScrollTrigger after fonts/load settle */
+window.addEventListener('load', ()=> setTimeout(()=>ScrollTrigger.refresh(), 300));
+
+/* ----------------------------------------------------------------
+   Safety net: never leave a card frozen mid-3D-transform.
+   If a .feat-card / .pain-card is in view but still rotated
+   (e.g. rAF paused while tab was backgrounded), force it flat.
+---------------------------------------------------------------- */
+function unfreezeCards(){
+  document.querySelectorAll('.feat-card, .pain-card, .comp-col, .whatsapp-card').forEach(el=>{
+    const r = el.getBoundingClientRect();
+    const inView = r.top < window.innerHeight*0.95 && r.bottom > 0;
+    if(inView){
+      const t = getComputedStyle(el).transform;
+      if(t && t !== 'none' && !gsap.isTweening(el)){
+        gsap.set(el, {clearProps:'transform', opacity:1});
+        const b = el.querySelectorAll('.bubble');
+        if(b.length) gsap.set(b, {opacity:1, clearProps:'transform'});
+      }
+    }
+  });
+}
+['visibilitychange','focus','pageshow'].forEach(ev=>
+  window.addEventListener(ev, ()=> setTimeout(unfreezeCards, 120)));
+setInterval(()=>{ if(!document.hidden) unfreezeCards(); }, 2500);
+</script>
+</body>
+</html>
